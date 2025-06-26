@@ -1,34 +1,57 @@
 import streamlit as st
+from docx import Document
+from io import BytesIO
 
-if "step" not in st.session_state:
-    st.session_state.step = 1
+# Session state: готов ли е документа
+if "generated" not in st.session_state:
+    st.session_state.generated = False
 
-def next_step():
-    st.session_state.step += 1
+# Layout: две колони
+col1, col2 = st.columns([1, 2])
 
-st.title("Многоетапно приложение")
+# ЛЯВА КОЛОНА – въвеждане
+with col1:
+    st.header("Форма")
+    name = st.text_input("Име")
+    address = st.text_area("Адрес")
 
-if st.session_state.step == 1:
-    st.subheader("Стъпка 1: Въведи твоето име")
-    name = st.text_input("Име:")
-    if st.button("Напред"):
-        if name.strip() != "":
+    if st.button("Генерирай документ"):
+        if name.strip() != "" and address.strip() != "":
+            st.session_state.generated = True
             st.session_state.name = name
-            next_step()
+            st.session_state.address = address
         else:
-            st.warning("Моля, въведи име!")
+            st.warning("Моля, попълни всички полета!")
 
-elif st.session_state.step == 2:
-    st.subheader("Стъпка 2: Въведи възраст")
-    age = st.number_input("Възраст:", min_value=0, step=1)
-    if st.button("Напред"):
-        st.session_state.age = age
-        next_step()
+# ДЯСНА КОЛОНА – визуализация и сваляне
+with col2:
+    st.header("Документ")
+    if st.session_state.generated:
+        st.subheader("Преглед:")
+        st.markdown(f"""
+        #### Лични данни  
+        **Име:** {st.session_state.name}  
+        **Адрес:** {st.session_state.address}
+        """)
+        
+        # Функция за създаване на DOCX
+        def create_docx(name, address):
+            doc = Document()
+            doc.add_heading("Документ", 0)
+            doc.add_paragraph(f"Име: {name}")
+            doc.add_paragraph(f"Адрес: {address}")
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            return buffer
 
-elif st.session_state.step == 3:
-    st.subheader("Готово! Обобщение:")
-    st.write(f"👤 Име: {st.session_state.name}")
-    st.write(f"🎂 Възраст: {st.session_state.age}")
-    if st.button("Започни отначало"):
-        st.session_state.step = 1
+        docx_file = create_docx(st.session_state.name, st.session_state.address)
 
+        st.download_button(
+            label="⬇️ Свали като DOCX",
+            data=docx_file,
+            file_name="личен_документ.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+    else:
+        st.info("Моля, въведи данни вляво и натисни 'Генерирай документ'")
