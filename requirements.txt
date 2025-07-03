@@ -1,2 +1,6 @@
+pandas
+numpy
+plotly
+scipy
 streamlit
-python-docx
+chardet
