@@ -6,4 +6,4 @@ st.title("Главна страница")
 st.write("Натисни бутона, за да отидеш на втората страница.")
 
 if st.button("Отиди"):
-    st.switch_page("pages/second_page")
+    st.switch_page("second_page")
