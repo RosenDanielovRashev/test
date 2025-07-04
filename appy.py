@@ -1,4 +1,5 @@
-# main_app.py
 import streamlit as st
+import sys
 
-streamlit --version
+st.write("Streamlit версия:", st.__version__)
+st.write("Python версия:", sys.version)
