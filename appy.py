@@ -4,14 +4,15 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
-import base64
 from io import BytesIO
-from fpdf import FPDF
-import matplotlib.pyplot as plt
+import base64
+from weasyprint import HTML
+import tempfile
+import os
 
-st.set_page_config(page_title="Тестово приложение с PDF генериране", layout="wide")
+st.set_page_config(page_title="Тестово приложение с HTML към PDF", layout="wide")
 
-st.title("📊 Тестово приложение с PDF генериране")
+st.title("📊 Тестово приложение с HTML към PDF конвертиране")
 st.markdown("---")
 
 # Секция 1: Въвеждане на данни
@@ -74,120 +75,316 @@ table_data = pd.DataFrame({
 })
 st.dataframe(table_data, use_container_width=True)
 
-st.markdown("---")
+# Функция за създаване на HTML съдържание
+def create_html_content():
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Отчет: {име_проект}</title>
+        <style>
+            @page {{
+                margin: 1cm;
+                size: A4;
+            }}
+            body {{
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                color: #333;
+                line-height: 1.6;
+            }}
+            .header {{
+                text-align: center;
+                border-bottom: 2px solid #333;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+            }}
+            .section {{
+                margin-bottom: 25px;
+                page-break-inside: avoid;
+            }}
+            .section-title {{
+                background-color: #f8f9fa;
+                padding: 10px;
+                border-left: 4px solid #007bff;
+                margin-bottom: 15px;
+                font-weight: bold;
+                font-size: 16px;
+            }}
+            .info-grid {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 15px;
+            }}
+            .info-item {{
+                padding: 8px;
+                border-bottom: 1px solid #eee;
+            }}
+            .info-label {{
+                font-weight: bold;
+                color: #555;
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+                font-size: 12px;
+            }}
+            th, td {{
+                border: 1px solid #ddd;
+                padding: 8px;
+                text-align: left;
+            }}
+            th {{
+                background-color: #f8f9fa;
+                font-weight: bold;
+            }}
+            .calculation {{
+                background-color: #e8f5e8;
+                padding: 15px;
+                border-radius: 5px;
+                margin: 15px 0;
+            }}
+            .footer {{
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                font-size: 11px;
+                color: #666;
+            }}
+            .metrics {{
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 10px;
+                margin: 20px 0;
+            }}
+            .metric {{
+                text-align: center;
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-radius: 5px;
+                border: 1px solid #ddd;
+            }}
+            .metric-value {{
+                font-size: 18px;
+                font-weight: bold;
+                color: #007bff;
+            }}
+            .metric-label {{
+                font-size: 12px;
+                color: #666;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>ОТЧЕТ: {име_проект}</h1>
+            <p>Генериран на: {datetime.now().strftime("%Y-%m-%d %H:%M")}</p>
+        </div>
 
-# Функция за генериране на PDF
-def generate_pdf():
-    pdf = FPDF()
-    pdf.add_page()
+        <div class="section">
+            <div class="section-title">📝 Основни параметри</div>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">Име на проект:</span> {име_проект}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Бюджет:</span> {бюджет} лв
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Начална дата:</span> {начало_дата}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Крайна дата:</span> {край_дата}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Брой елементи:</span> {брой_елементи}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Приоритет:</span> {приоритет}
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">🧮 Изчисления</div>
+            <div class="calculation">
+                <p><strong>Средна стойност на елемент:</strong> {средна_стойност:.2f} лв</p>
+                <p><strong>Продължителност на проекта:</strong> {дни_проект} дни</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📊 Финансови показатели</div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="metric-value">{данни['Приходи'].sum()} лв</div>
+                    <div class="metric-label">Общ приход</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{данни['Разходи'].sum()} лв</div>
+                    <div class="metric-label">Общ разход</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{данни['Печалба'].sum()} лв</div>
+                    <div class="metric-label">Обща печалба</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{данни['Печалба'].mean():.1f} лв</div>
+                    <div class="metric-label">Средна печалба</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📋 Списък със задачи</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Задача</th>
+                        <th>Статус</th>
+                        <th>Прогрес %</th>
+                        <th>Отговорен</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
     
-    # Заглавие
-    pdf.set_font('Arial', 'B', 16)
-    pdf.cell(200, 10, f'ОТЧЕТ: {име_проект}', 0, 1, 'C')
-    pdf.ln(10)
+    # Добавяне на редовете в таблицата
+    for _, row in table_data.iterrows():
+        html_content += f"""
+                    <tr>
+                        <td>{row['ID']}</td>
+                        <td>{row['Задача']}</td>
+                        <td>{row['Статус']}</td>
+                        <td>{row['Прогрес %']}%</td>
+                        <td>{row['Отговорен']}</td>
+                    </tr>
+        """
     
-    # Основна информация
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Основни параметри:', 0, 1)
-    pdf.set_font('Arial', '', 11)
+    html_content += """
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📈 Месечни данни</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Месец</th>
+                        <th>Приходи (лв)</th>
+                        <th>Разходи (лв)</th>
+                        <th>Печалба (лв)</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
     
-    info_data = [
-        f'Име на проект: {име_проект}',
-        f'Бюджет: {бюджет} лв',
-        f'Начална дата: {начало_дата}',
-        f'Крайна дата: {край_дата}',
-        f'Брой елементи: {брой_елементи}',
-        f'Приоритет: {приоритет}',
-        f'Средна стойност на елемент: {средна_стойност:.2f} лв',
-        f'Продължителност на проекта: {дни_проект} дни'
-    ]
+    # Добавяне на финансовите данни
+    for _, row in данни.iterrows():
+        html_content += f"""
+                    <tr>
+                        <td>{row['Месец']}</td>
+                        <td>{row['Приходи']}</td>
+                        <td>{row['Разходи']}</td>
+                        <td style="color: {'green' if row['Печалба'] >= 0 else 'red'}">{row['Печалба']}</td>
+                    </tr>
+        """
     
-    for info in info_data:
-        pdf.cell(200, 8, info, 0, 1)
+    html_content += f"""
+                </tbody>
+            </table>
+        </div>
+
+        <div class="footer">
+            <p>Този отчет е генериран автоматично от тестовото приложение.</p>
+            <p>Съдържа всички въведени данни, изчисления и таблици.</p>
+        </div>
+    </body>
+    </html>
+    """
     
-    pdf.ln(10)
+    return html_content
+
+# Функция за конвертиране на HTML към PDF
+def html_to_pdf(html_content):
+    # Създаване на временен файл
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False, encoding='utf-8') as f:
+        f.write(html_content)
+        temp_html = f.name
     
-    # Таблица с данни
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Таблица със задачи:', 0, 1)
-    pdf.ln(5)
-    
-    # Заглавия на таблицата
-    pdf.set_font('Arial', 'B', 10)
-    col_widths = [15, 50, 40, 30, 40]
-    headers = ['ID', 'Задача', 'Статус', 'Прогрес %', 'Отговорен']
-    
-    for i, header in enumerate(headers):
-        pdf.cell(col_widths[i], 10, header, 1, 0, 'C')
-    pdf.ln()
-    
-    # Данни в таблицата
-    pdf.set_font('Arial', '', 9)
-    for index, row in table_data.iterrows():
-        pdf.cell(col_widths[0], 10, str(row['ID']), 1, 0, 'C')
-        pdf.cell(col_widths[1], 10, str(row['Задача']), 1, 0, 'L')
-        pdf.cell(col_widths[2], 10, str(row['Статус']), 1, 0, 'C')
-        pdf.cell(col_widths[3], 10, str(row['Прогрес %']), 1, 0, 'C')
-        pdf.cell(col_widths[4], 10, str(row['Отговорен']), 1, 0, 'C')
-        pdf.ln()
-    
-    pdf.ln(10)
-    
-    # Финансови данни
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(200, 10, 'Финансови показатели:', 0, 1)
-    pdf.set_font('Arial', '', 11)
-    
-    pdf.cell(200, 8, f'Общ приход: {данни["Приходи"].sum()} лв', 0, 1)
-    pdf.cell(200, 8, f'Общ разход: {данни["Разходи"].sum()} лв', 0, 1)
-    pdf.cell(200, 8, f'Обща печалба: {данни["Печалба"].sum()} лв', 0, 1)
-    pdf.cell(200, 8, f'Средна месечна печалба: {данни["Печалба"].mean():.2f} лв', 0, 1)
-    
-    pdf.ln(10)
-    
-    # Заключение
-    pdf.set_font('Arial', 'I', 10)
-    pdf.cell(200, 8, f'Отчет генериран на: {datetime.now().strftime("%Y-%m-%d %H:%M")}', 0, 1)
-    pdf.cell(200, 8, 'Това е автоматично генериран отчет от тестовото приложение.', 0, 1)
-    
-    return pdf
+    try:
+        # Конвертиране на HTML към PDF
+        pdf_bytes = HTML(temp_html).write_pdf()
+        return pdf_bytes
+    except Exception as e:
+        st.error(f"Грешка при конвертиране: {str(e)}")
+        return None
+    finally:
+        # Изтриване на временния файл
+        try:
+            os.unlink(temp_html)
+        except:
+            pass
 
 # Секция за генериране на PDF
-st.header("📄 Генериране на PDF отчет")
+st.markdown("---")
+st.header("📄 Генериране на PDF отчет от HTML")
 
-st.markdown("""
-### Инструкции:
-- Попълнете данните по-горе
-- Кликнете бутона за генериране на PDF
-- PDF файлът ще се изтегли автоматично
-""")
+col1, col2 = st.columns(2)
 
-if st.button("🔄 Генерирай PDF отчет", type="primary"):
-    try:
-        # Генериране на PDF
-        pdf = generate_pdf()
-        
-        # Запазване в паметта
-        pdf_output = pdf.output(dest='S').encode('latin1')
-        
-        # Създаване на download бутон
-        st.download_button(
-            label="📥 Изтегли PDF файл",
-            data=pdf_output,
-            file_name=f"отчет_{име_проект}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-            mime="application/pdf",
-            type="primary"
-        )
-        
-        st.success("✅ PDF отчетът е генериран успешно! Кликнете бутона за изтегляне.")
-        
-    except Exception as e:
-        st.error(f"❌ Грешка при генериране на PDF: {str(e)}")
+with col1:
+    st.markdown("""
+    ### 🎯 Преимущества:
+    - **Професионално форматиране**
+    - **Стилове и CSS**
+    - **Таблици и метрики**
+    - **Автоматично генериране**
+    - **Висока качество на PDF**
+    """)
 
-# Допълнителна информация
+with col2:
+    if st.button("🔄 Генерирай PDF от HTML", type="primary", use_container_width=True):
+        with st.spinner("Генериране на PDF..."):
+            try:
+                # Създаване на HTML съдържание
+                html_content = create_html_content()
+                
+                # Конвертиране към PDF
+                pdf_bytes = html_to_pdf(html_content)
+                
+                if pdf_bytes:
+                    # Създаване на download бутон
+                    st.download_button(
+                        label="📥 Изтегли PDF файл",
+                        data=pdf_bytes,
+                        file_name=f"отчет_{име_проект}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True
+                    )
+                    
+                    st.success("✅ PDF отчетът е генериран успешно!")
+                    
+                    # Показване на HTML preview
+                    with st.expander("🔍 Преглед на HTML съдържанието"):
+                        st.code(html_content, language='html')
+                else:
+                    st.error("❌ Неуспешно генериране на PDF")
+                    
+            except Exception as e:
+                st.error(f"❌ Грешка: {str(e)}")
+
+# Информация за технологията
 st.markdown("---")
 st.info("""
-**Забележка:** Този PDF съдържа всички въведени данни, таблици и изчисления, 
-но не включва графиките. За включване на графики в PDF ще са необходими 
-допълнителни библиотеки като `imgkit` или `weasyprint`.
+**Технология:** Този подход използва **WeasyPrint** за конвертиране на HTML и CSS към PDF. 
+Това позволява пълно контролиране на оформлението и стиловете, като същевременно 
+генерира висококачествени PDF документи.
 """)
